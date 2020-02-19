@@ -1,0 +1,233 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<title>Generic</title>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+		<link rel="stylesheet" href="../assets/css/main.css" />
+	</head>
+	<body class="is-preload">
+
+		<!-- Wrapper -->
+			<div id="wrapper">
+
+				<!-- Main -->
+					<div id="main">
+						<div class="inner">
+
+							<!-- Header -->
+								<header id="header">
+									<a href="../index.html" class="logo">by <strong>Crescent Mountain</strong></a>
+								</header>
+
+							<!-- Content -->
+								<section>
+									<header class="main">
+										<h1>用java下载“指”定网站的图片</h1>
+									</header>
+									<h2>步骤分析</h2>
+									<div class="row">
+										<h4>1.通过“F12”观察目标网页排列、引用图片的规则，下载其主体html。
+										2.扫描文件，找出有效的图片链接，一般在img标签内。
+										3.遍历做好的链接集合，下载、按自己的方式重命名。</h4>
+										<p></p>
+									</div>
+
+									<div class="row">
+										<div class="col-6 col-12-small">
+											<h2>工具类</h2>
+											<ul>
+												<li>MyFile.java：从HTML中扫描图片链接所在行。根据正则返回形如<code><b>xxx&lt;a href="xxx"&gt;&lt;img src="http://xxx.jpg" xxx /&gt;&lt;/a&gt;xxx</b></code>的字符串集合(之后再针对不同网站，从每行中拆分出正确的url)</li>
+												<li>MyDownloader.java：下载单个文件。主要用到URL连接、缓冲流写入</li>
+											</ul>
+											<h3>MyDownloader.java</h3>
+											<pre><code>
+											package util;
+
+import java.io.BufferedInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLConnection;
+
+public class MyDownloader {
+	public static void download(String url, String saveName)  throws IOException{
+		URL u = null;
+		try {
+			u = new URL(url);
+		} catch (MalformedURLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		URLConnection uc = u.openConnection();
+		int contentLength = uc.getContentLength();
+		try(InputStream is = uc.getInputStream()){
+			BufferedInputStream bis = new BufferedInputStream(is);
+			byte[] data = new byte[contentLength];
+			int offset = 0;
+			while(offset < contentLength) {
+				int byteReadCount = bis.read(data, offset, data.length-offset);
+				if(byteReadCount < 0) {
+					break;
+				}
+				offset += byteReadCount;
+			}
+			try(FileOutputStream fos = new FileOutputStream(saveName)){
+				fos.write(data);
+				fos.flush();
+			}
+		}
+	}
+}
+
+											</code></pre>
+											<h3>DownLovemmtu.java</h3>
+											<pre><code>
+											import java.io.File;
+import java.util.ArrayList;
+import util.MyDownloader;
+import util.MyFile;
+/** www.lovemmtu.net**/
+public class DownLovemmtu {
+	
+	final static String webName = "***/Downloads/23456.html";
+	final static String head = "http";
+	final static String tail = "jpg";
+	final static String pattern = ".*" + head + ".*" + tail + ".*";
+	static int num = 35;
+	static String saveLoc = "***/XXX[35p]/";
+	
+	public static void main(String[] args) {
+		ArrayList<String> strList = MyFile.getStrList(webName, pattern, num);
+		File folder = new File(saveLoc);
+		if(folder.exists()) {
+			return;
+		}
+		folder.mkdir();
+		num = 0;
+		for(String s : strList) {
+			try {
+				String url = s.substring(s.indexOf(head), s.indexOf(tail)+tail.length());
+				MyDownloader.download(url, saveLoc + ++num + "." + tail);
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		System.out.println("ςԘͪ³ɢ);
+	}
+
+}
+/**
+* 向
+* 右
+* 看
+* 齐
+*
+****************************************/
+										</code></pre>
+										</div>
+										
+										<div class="col-6 col-12-small">
+											<h3>MyFile.java</h3>
+											<pre><code>
+											package util;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.util.ArrayList;
+import java.util.regex.Pattern;
+
+public class MyFile {
+	public static ArrayList<String> getStrList(String path, String pattern, int limit){
+		File file = new File(path);
+		ArrayList<String> strList = new ArrayList<String>();
+		try {
+			FileReader fr = new FileReader(file);
+			BufferedReader br = new BufferedReader(fr);
+			String s = null;
+			while((s = br.readLine()) != null && limit != 0) {
+				if(Pattern.matches(pattern, s)) {
+					limit--;
+					strList.add(s);
+				}
+			}
+			br.close();
+			fr.close();
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return strList;
+	}
+}
+//关于limit查找次数限制：传入负数不限次。设置limit的原因：Lovemmtu网页中有其他不相关的图片，好在重要图片代码排在前面，而且titile中也明示了图片数量。
+											</code></pre>
+											<h2>实现类</h2>
+											<ul>
+												<li>DownHandmaid.java：从<a href="https://handmaid.cn" target="_blank">handmaid</a>下载图片。这个网页有两个难点。__1.img和外侧的a标签没写在同一行，需要将产生的url去重。（另外外链中有xxx/jpg/xxx字样，在截取时用.jpg就行）___2.网站只正常显示几张图片，其余的覆盖了“锁定”图片，并且剩余图片的链接全都写在同一行，需要针对最后一行做处理。</li>
+												<li>DownLovemmtu.java：从<a href="https://www.lovemmtu.net" target="_blank">Lovemmtu</a>下载图片。这个网站默认显示缩略图：如abc-230x420.jpg，其img外层的a标签是abc.jpg的链接，即正常浏览网页时，需要手动“点击查看大图”。不过源代码中并没有因为a与img的层次关系而换行，所以对于MyFile类传回的字符串，从http的索引位置截取到jpg的索引位置即可。</li>
+											</ul>
+											<h3>DownHandmaid.java</h3>
+											<pre><code>
+											import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+
+import util.MyDownloader;
+import util.MyFile;
+/**handmaid.cn**/
+public class DownHandmaid {
+
+	public static void main(String[] args) {
+		String saveLoc = "***/vol.31-粉色团子-女仆网-萌域图鉴/";
+		String webName = "***/Downloads/PP5X";
+		String pattern = ".*http.*jpg.*";
+		int limit = -1;
+		int count = 0;
+		ArrayList<String> strList = MyFile.getStrList(webName, pattern, limit);
+		ArrayList<String> urlList = new ArrayList<String>();
+		for(String s : strList) {
+			if(strList.indexOf(s) < strList.size()-1) {
+				String url = "http://" +  s.substring(s.indexOf("img4"), s.indexOf(".jpg"))+".jpg";
+				if(urlList.contains(url)) {continue;}
+				urlList.add(url);
+			} else {//最后一行
+				String[] strs = s.split("originUrl");
+				for(int i = 1; i < strs.length; i++) {
+					String url = "http://" +  strs[i].substring(strs[i].indexOf("img4"), strs[i].indexOf(".jpg"))+".jpg";
+					urlList.add(url);
+				}
+			}			
+		}
+		File folder = new File(saveLoc);
+		if(folder.exists()) {
+			return;
+		}
+		folder.mkdir();
+		for(String url : urlList) {
+			try {
+				MyDownloader.download(url, saveLoc+ ++count + ".jpg");
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		System.out.println(count);
+	}
+
+}
+											</code></pre>
+										</div>
+									</div>
+								</section>
+
+						</div>
+					</div>
+			</div>
+
+	</body>
+</html>
